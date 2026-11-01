@@ -1,4 +1,7 @@
+import pytest
+
 from fastapi.testclient import TestClient
+
 
 COURSE = {"code": "CC101", "title": "Cloud Computing", "lecturer": "Alex"}
 
@@ -59,7 +62,7 @@ def test_missing_title(client):
     assert client.get("/courses").json() == []
 
 
-def test_posting_valid_then_invalid_then_valid_courses(client):
+def test_valid_then_invalid_then_valid(client):
     courses = [COURSE, {**COURSE, "title": "CC"}, {**COURSE, "code": "CC102"}]
     responses = [client.post("/courses", json=course) for course in courses]
 
@@ -69,3 +72,13 @@ def test_posting_valid_then_invalid_then_valid_courses(client):
     assert get_all_courses_response.json() == (
         [responses[0].json(), responses[2].json()] or
         [responses[2].json(), responses[0].json()])
+
+
+@pytest.mark.parametrize("course_attribute", COURSE.keys())
+def test_post_none_handling(client, course_attribute):
+    course = {**COURSE, course_attribute: None}
+
+    response = client.post("/courses", json=course)
+
+    assert response.status_code == 422
+    assert any(error["loc"] == ["body", course_attribute] for error in response.json()["detail"])
